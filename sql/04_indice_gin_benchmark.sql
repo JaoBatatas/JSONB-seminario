@@ -1,55 +1,50 @@
 -- ============================================================================
--- BENCHMARK DE DESEMPENHO COM E SEM ÍNDICE GIN
--- Comparando planos de execução via EXPLAIN ANALYZE em 200.003 documentos
+-- ARQUIVO 04: ÍNDICE GIN E EXPLAIN ANALYZE NA TABELA CONSERTO (Requisito 3)
 -- ============================================================================
 
--- Garantir que começamos o teste SEM nenhum índice na coluna JSONB
-DROP INDEX IF EXISTS idx_produtos_atributos_gin;
-DROP INDEX IF EXISTS idx_produtos_atributos_gin_path_ops;
+DROP INDEX IF EXISTS idx_conserto_laudo_gin;
 
 -- ----------------------------------------------------------------------------
--- PASSO 1: Consulta SEM Índice (Varredura Sequencial - Seq Scan)
+-- PASSO 1: Busca SEM Índice GIN (Sequential Scan)
 -- ----------------------------------------------------------------------------
--- Buscando produtos da marca "Corsair", do lote 42, com peso de 1542g.
--- Observe no output: "Seq Scan on produtos" (ou Parallel Seq Scan)
--- Observe o "Execution Time" no final (geralmente entre 40 ms e 80 ms).
+-- Procurando consertos do sistema de "Injecao", lote de peça 42, 
+-- onde o código OBD2 foi "P0142" e temperatura do motor 112°C.
+-- Observe o "Seq Scan" e o tempo na casa de ~50ms a ~90ms:
 EXPLAIN ANALYZE
-SELECT id, sku, nome, preco
-FROM produtos
-WHERE atributos @> '{"marca": "Corsair", "lote": 42, "especificacoes": {"peso_gramas": 1542}}'::jsonb;
+SELECT id_conserto, codm, codv, data
+FROM conserto
+WHERE laudo_jsonb @> '{
+    "sistema_afetado": "Injecao",
+    "lote_peca": 42,
+    "telemetria_obd2": {"codigo_principal": "P0142", "temp_motor_c": 112}
+}'::jsonb;
 
 
 -- ----------------------------------------------------------------------------
--- PASSO 2: Criação do Índice GIN (Generalized Inverted Index)
+-- PASSO 2: Tentativa de criar índice GIN na coluna JSON comum (Demonstração)
 -- ----------------------------------------------------------------------------
--- O índice GIN abre cada documento JSONB e indexa todas as chaves e valores
--- em uma árvore B invertida apontando para os IDs das linhas (TIDs).
-CREATE INDEX idx_produtos_atributos_gin 
-ON produtos USING GIN (atributos);
+-- Se descomentar abaixo, dará ERRO: data type json has no default operator class for access method "gin"
+-- Isso prova na prática por que JSONB é indispensável para bancos de documentos!
+-- CREATE INDEX idx_erro_json ON conserto USING GIN (laudo_json);
 
 
 -- ----------------------------------------------------------------------------
--- PASSO 3: Mesma Consulta COM Índice GIN
+-- PASSO 3: Criando o Índice GIN na coluna JSONB
 -- ----------------------------------------------------------------------------
--- Observe no output: Mudou para "Bitmap Heap Scan" / "Bitmap Index Scan"
--- Observe o "Execution Time": Cai drasticamente para ~0.08 ms a 0.35 ms!
+CREATE INDEX idx_conserto_laudo_gin 
+ON conserto USING GIN (laudo_jsonb);
+
+
+-- ----------------------------------------------------------------------------
+-- PASSO 4: Mesma Busca COM Índice GIN (Bitmap Index Scan)
+-- ----------------------------------------------------------------------------
+-- Observe a mudança para "Bitmap Heap Scan" / "Bitmap Index Scan"
+-- e a queda drástica do Execution Time para ~0.08ms a 0.35ms!
 EXPLAIN ANALYZE
-SELECT id, sku, nome, preco
-FROM produtos
-WHERE atributos @> '{"marca": "Corsair", "lote": 42, "especificacoes": {"peso_gramas": 1542}}'::jsonb;
-
-
--- ----------------------------------------------------------------------------
--- BÔNUS TÉCNICO: Comparando tamanho de índice (jsonb_ops vs jsonb_path_ops)
--- ----------------------------------------------------------------------------
--- Criando um segundo índice usando a classe 'jsonb_path_ops' (baseada em hash de caminhos)
-CREATE INDEX idx_produtos_atributos_gin_path_ops 
-ON produtos USING GIN (atributos jsonb_path_ops);
-
--- Comparando o tamanho em disco dos dois tipos de índice GIN no PostgreSQL:
--- O jsonb_path_ops consome muito menos espaço em disco e é ainda mais rápido para o operador @>!
-SELECT 
-    indexrelname AS nome_do_indice,
-    pg_size_pretty(pg_relation_size(indexrelid)) AS tamanho_em_disco
-FROM pg_stat_user_indexes
-WHERE relname = 'produtos';
+SELECT id_conserto, codm, codv, data
+FROM conserto
+WHERE laudo_jsonb @> '{
+    "sistema_afetado": "Injecao",
+    "lote_peca": 42,
+    "telemetria_obd2": {"codigo_principal": "P0142", "temp_motor_c": 112}
+}'::jsonb;

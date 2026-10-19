@@ -1,31 +1,34 @@
 -- ============================================================================
--- DIFERENÇA PRÁTICA ENTRE JSON E JSONB
+-- ARQUIVO 02: COMPARAÇÃO DIRETA ENTRE JSON E JSONB NA TABELA CONSERTO (Requisito 1)
 -- ============================================================================
 
-DROP TABLE IF EXISTS demonstracao_tipos;
-
-CREATE TABLE demonstracao_tipos (
-    id SERIAL PRIMARY KEY,
-    dados_json JSON,   -- Armazena cópia exata do texto de entrada
-    dados_jsonb JSONB  -- Armazena em árvore binária decomposta
-);
-
--- Inserindo exatamente a MESMA string com:
--- 1) Espaços em branco excessivos;
--- 2) Chaves fora de ordem ("z_chave" antes de "a_chave");
--- 3) Chave "preco" duplicada (valor 100 e depois valor 250).
-INSERT INTO demonstracao_tipos (dados_json, dados_jsonb)
-VALUES (
-    '{  "z_chave": "teste",    "preco": 100,   "a_chave": 1,   "preco": 250  }',
-    '{  "z_chave": "teste",    "preco": 100,   "a_chave": 1,   "preco": 250  }'
-);
-
--- Compare o resultado abaixo no pgAdmin 4:
--- A coluna JSON manteve os espaços, a ordem original e as duas chaves "preco".
--- A coluna JSONB removeu espaços extras, desduplicou "preco" (manteve 250) e reordenou as chaves!
+-- ----------------------------------------------------------------------------
+-- 1. Diferença Estrutural (Formatação, Ordem das Chaves e Duplicatas)
+-- ----------------------------------------------------------------------------
+-- Observe no primeiro conserto inserido:
+-- * laudo_json: Manteve quebras de linha, espaços, "z_observacao" no topo e DUAS chaves "prioridade".
+-- * laudo_jsonb: Removeu espaços, ordenou chaves e manteve apenas a última chave ("prioridade": "alta").
 SELECT 
-    dados_json, 
-    dados_jsonb,
-    pg_column_size(dados_json) AS bytes_json,
-    pg_column_size(dados_jsonb) AS bytes_jsonb
-FROM demonstracao_tipos;
+    id_conserto,
+    laudo_json,
+    laudo_jsonb
+FROM conserto
+WHERE id_conserto = 1;
+
+-- ----------------------------------------------------------------------------
+-- 2. Diferença de Desempenho de Leitura SEM ÍNDICE (Parse de Texto vs Binário)
+-- ----------------------------------------------------------------------------
+-- Mesmo SEM nenhum índice criado ainda, veja a diferença de velocidade ao extrair
+-- um campo aninhado nos 200.002 registros:
+
+-- A) Lendo da coluna JSON (Mais lento: precisa fazer o parse do texto em todas as 200k linhas)
+-- EXPLAIN ANALYZE
+SELECT count(*) 
+FROM conserto 
+WHERE laudo_json #>> '{telemetria_obd2, codigo_principal}' = 'P0420';
+
+-- B) Lendo da coluna JSONB (Mais rápido: navega direto nos ponteiros da árvore binária)
+-- EXPLAIN ANALYZE
+SELECT count(*) 
+FROM conserto 
+WHERE laudo_jsonb #>> '{telemetria_obd2, codigo_principal}' = 'P0420';
