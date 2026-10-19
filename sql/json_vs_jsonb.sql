@@ -85,7 +85,7 @@ id_conserto,
 laudo_jsonb -> 'sistema_afetado' AS sistema_afetado,
 laudo_jsonb #> '{prioridade}' AS prioridade
 FROM conserto
-WHERE laudo_jsonb @> '{"sistema_afetado": "Injecao", "prioridade": "alta"}'
+WHERE laudo_jsonb @> '{"sistema_afetado": "Injecao", "prioridade": "alta"}'::jsonb
 LIMIT 5;
 
 -- 2.4 SQL/JSON Path com jsonb_path_query
@@ -112,7 +112,7 @@ LIMIT 5;
 -- A) Operador ||: adiciona uma nova chave ou substitui o valor de uma chave existente
 SELECT
 id_conserto,
-laudo_jsonb || '{"prioridade": "alta", "garantia_dias": 90, "revisao_pendente": false}' AS laudo_atualizado
+laudo_jsonb || '{"prioridade": "alta", "garantia_dias": 90, "revisao_pendente": false}'::jsonb AS laudo_atualizado
 FROM conserto
 WHERE id_conserto = 1;
 
@@ -161,7 +161,7 @@ WHERE laudo_jsonb @> '{
 "sistema_afetado": "Injecao",
 "lote_peca": 42,
 "ordem_servico": "OS-42"
-}';
+}'::jsonb;
 
 -- Criação do Índice Invertido GIN
 CREATE INDEX idx_conserto_laudo_gin ON conserto USING GIN (laudo_jsonb);
@@ -176,4 +176,4 @@ WHERE laudo_jsonb @> '{
 "sistema_afetado": "Injecao",
 "lote_peca": 42,
 "ordem_servico": "OS-42"
-}';
+}'::jsonb;
