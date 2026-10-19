@@ -85,7 +85,7 @@ id_conserto,
 laudo_jsonb -> 'sistema_afetado' AS sistema_afetado,
 laudo_jsonb #> '{prioridade}' AS prioridade
 FROM conserto
-WHERE laudo_jsonb @> '{"sistema_afetado": "Injecao", "prioridade": "alta"}'::jsonb
+WHERE laudo_jsonb @> '{"sistema_afetado": "Injecao", "prioridade": "alta"}'
 LIMIT 5;
 
 -- 2.4 SQL/JSON Path com jsonb_path_query
@@ -112,7 +112,7 @@ LIMIT 5;
 -- A) Operador ||: adiciona uma nova chave ou substitui o valor de uma chave existente
 SELECT
 id_conserto,
-laudo_jsonb || '{"prioridade": "alta", "garantia_dias": 90, "revisao_pendente": false}'::jsonb AS laudo_atualizado
+laudo_jsonb || '{"prioridade": "alta", "garantia_dias": 90, "revisao_pendente": false}' AS laudo_atualizado
 FROM conserto
 WHERE id_conserto = 1;
 
