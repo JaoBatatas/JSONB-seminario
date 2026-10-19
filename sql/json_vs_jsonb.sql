@@ -10,9 +10,9 @@
 -- =============================================================================
 
 -- 1.1 Inserção de uma string com:
---     - Espaços em branco excessivos e quebras de linha
---     - Chaves fora de ordem alfabética ("z_obs" antes de "a_codigo")
---     - Chave duplicada ("prioridade": "baixa" e depois "prioridade": "alta")
+-- - Espaços em branco excessivos e quebras de linha
+-- - Chaves fora de ordem alfabética ("z_obs" antes de "a_codigo")
+-- - Chave duplicada ("prioridade": "baixa" e depois "prioridade": "alta")
 DROP TABLE IF EXISTS demo_comparacao_tipos;
 CREATE TABLE demo_comparacao_tipos (
 id SERIAL PRIMARY KEY,
